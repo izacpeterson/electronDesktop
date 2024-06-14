@@ -1,5 +1,8 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
+const os = require("os");
+const shell = "bash";
+const pty = require("node-pty");
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {
@@ -15,6 +18,8 @@ const createWindow = () => {
     // fullscreen: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: true,
+      contextIsolation: false,
     },
   });
 
@@ -23,6 +28,20 @@ const createWindow = () => {
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools();
+
+  const ptyProcess = pty.spawn(shell, [], {
+    name: "xterm-color",
+    cwd: process.env.HOME,
+    env: process.env,
+  });
+
+  ptyProcess.on("data", function (data) {
+    mainWindow.webContents.send("terminal.incomingData", data);
+    console.log("Data sent");
+  });
+  ipcMain.on("terminal.keystroke", (event, key) => {
+    ptyProcess.write(key);
+  });
 };
 
 // This method will be called when Electron has finished
